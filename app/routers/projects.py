@@ -13,6 +13,12 @@ from app.schemas import ProjectCreate, ProjectRead, ProjectUpdate
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
+@router.get("", response_model=list[ProjectRead])
+async def list_projects(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Project).order_by(Project.created_at.desc()))
+    return result.scalars().all()
+
+
 @router.post("", response_model=ProjectRead, status_code=201)
 async def create_project(body: ProjectCreate, db: AsyncSession = Depends(get_db)):
     project = Project(name=body.name)
