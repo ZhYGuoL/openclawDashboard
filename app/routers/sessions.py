@@ -32,6 +32,7 @@ async def start_session(
         str(project_id),
         str(thread.id),
         body.prompt,
+        auto_execute=body.auto_execute,
     )
 
     return SessionRead(

@@ -7,13 +7,16 @@ Rounds:
   3 — Designer critiques UX, suggests flows
   4 — Analyst defines metrics / experiments
   5 — PM reconciles into decisions + action items
+  6 — CEO reviews decisions and approves/rejects
   Final — Memo writer generates the investor-style memo
+  (optional) — Auto-execute approved action items
 """
 
 from __future__ import annotations
 
 import json
 import re
+import subprocess
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -34,6 +37,7 @@ from app.models import (
     Event,
     Memo,
     Message,
+    Project,
     Thread,
 )
 from app.openclaw import get_openclaw_client
@@ -41,6 +45,42 @@ from app.openclaw.base import AgentResult
 from app.workers.celery_app import celery
 
 logger = structlog.get_logger(__name__)
+
+
+def _extract_executive_summary(memo_markdown: str) -> str:
+    """Pull the Executive Summary section out of the memo markdown."""
+    match = re.search(
+        r"## Executive Summary\s*\n(.*?)(?=\n## |\Z)",
+        memo_markdown,
+        re.DOTALL,
+    )
+    if match:
+        return match.group(1).strip()
+    # Fallback: first 500 chars
+    return memo_markdown[:500].strip()
+
+
+def _send_imessage(phone_number: str, body: str) -> None:
+    """Send an iMessage via AppleScript. macOS only."""
+    escaped = body.replace("\\", "\\\\").replace('"', '\\"')
+    script = (
+        f'tell application "Messages"\n'
+        f'  set targetService to 1st account whose service type = iMessage\n'
+        f'  set targetBuddy to participant "{phone_number}" of targetService\n'
+        f'  send "{escaped}" to targetBuddy\n'
+        f'end tell'
+    )
+    try:
+        subprocess.run(
+            ["osascript", "-e", script],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        logger.info("imessage_sent", phone=phone_number)
+    except Exception as exc:
+        logger.error("imessage_send_failed", error=str(exc))
+
 
 ROUND_CONFIG: list[dict[str, Any]] = [
     {
@@ -107,6 +147,21 @@ ROUND_CONFIG: list[dict[str, Any]] = [
             "1. DECISIONS (format each as 'DECISION: <title> | <rationale>')\n"
             "2. ACTION_ITEMS (format each as 'ACTION: <owner_role> | <description>')\n\n"
             "Discussion:\n{context}"
+        ),
+    },
+    {
+        "round": 6,
+        "label": "CEO — Review & Approval",
+        "role": AgentRole.CEO,
+        "instruction_template": (
+            "You are the CEO. Review the decisions and action items proposed by "
+            "the team. For each decision, state either:\n"
+            "  APPROVED: <decision title>\n"
+            "  REJECTED: <decision title> | <reason>\n\n"
+            "Then re-prioritize or modify the action items if needed. "
+            "Be decisive and concise. Focus on what ships fastest with the "
+            "highest impact.\n\n"
+            "Discussion and proposals:\n{context}"
         ),
     },
 ]
@@ -223,6 +278,7 @@ def _parse_action_items(
 ) -> list[ActionItem]:
     """Extract ACTION lines from PM reconciliation output."""
     role_map = {
+        "ceo": AgentRole.CEO,
         "pm": AgentRole.PM,
         "engineer": AgentRole.ENGINEER,
         "designer": AgentRole.DESIGNER,
@@ -245,8 +301,41 @@ def _parse_action_items(
     return items
 
 
+def _parse_ceo_approvals(db: Any, project_id: str, text: str) -> dict[str, str]:
+    """Parse CEO approval/rejection lines and update Decision statuses."""
+    updates: dict[str, str] = {}
+    decisions = db.execute(
+        select(Decision).where(Decision.project_id == uuid.UUID(project_id))
+    ).scalars().all()
+
+    for match in re.finditer(r"APPROVED:\s*(.+)", text):
+        title = match.group(1).strip()
+        updates[title] = "approved"
+    for match in re.finditer(r"REJECTED:\s*(.+?)(?:\s*\|\s*(.+))?$", text, re.MULTILINE):
+        title = match.group(1).strip()
+        updates[title] = "rejected"
+
+    for decision in decisions:
+        for key, status_str in updates.items():
+            if key.lower() in decision.title.lower() or decision.title.lower() in key.lower():
+                decision.status = (
+                    DecisionStatus.ACCEPTED if status_str == "approved"
+                    else DecisionStatus.REJECTED
+                )
+                break
+
+    db.commit()
+    return updates
+
+
 @celery.task(name="app.workers.meeting.run_meeting_pipeline", bind=True, max_retries=1)
-def run_meeting_pipeline(self, project_id: str, thread_id: str, prompt: str) -> dict[str, Any]:
+def run_meeting_pipeline(
+    self,
+    project_id: str,
+    thread_id: str,
+    prompt: str,
+    auto_execute: bool = False,
+) -> dict[str, Any]:
     db = get_sync_db()
     client = get_openclaw_client()
     round_outputs: list[str] = []
@@ -254,6 +343,7 @@ def run_meeting_pipeline(self, project_id: str, thread_id: str, prompt: str) -> 
     _emit_event(db, project_id, "SESSION_STARTED", {
         "thread_id": thread_id,
         "prompt": prompt,
+        "auto_execute": auto_execute,
     })
 
     _add_message(db, thread_id, AuthorType.USER, prompt)
@@ -287,7 +377,7 @@ def run_meeting_pipeline(self, project_id: str, thread_id: str, prompt: str) -> 
 
             extra_config = {}
             if agent and agent.config_json:
-                extra_config = agent.config_json
+                extra_config = dict(agent.config_json)
 
             tool_profile = extra_config.pop("tool_profile", "full")
             model = extra_config.pop("model", "")
@@ -321,9 +411,17 @@ def run_meeting_pipeline(self, project_id: str, thread_id: str, prompt: str) -> 
             _add_message(db, thread_id, author_type, result.output, agent_id_str)
             round_outputs.append(f"[{label}]\n{result.output}")
 
+            # PM reconciliation: extract decisions and action items
             if round_num == 5 and result.success:
                 _parse_decisions(db, project_id, thread_id, result.output)
                 _parse_action_items(db, project_id, result.output)
+
+            # CEO review: approve/reject decisions
+            if round_num == 6 and result.success:
+                approvals = _parse_ceo_approvals(db, project_id, result.output)
+                _emit_event(db, project_id, "CEO_REVIEW_COMPLETED", {
+                    "approvals": approvals,
+                })
 
             _emit_event(db, project_id, "ROUND_ENDED", {
                 "round": round_num,
@@ -336,9 +434,18 @@ def run_meeting_pipeline(self, project_id: str, thread_id: str, prompt: str) -> 
         _emit_event(db, project_id, "SESSION_COMPLETED", {
             "thread_id": thread_id,
             "memo_generated": bool(memo_content),
+            "auto_execute": auto_execute,
         })
 
-        return {"status": "completed", "thread_id": thread_id}
+        # Auto-execute action items if requested
+        if auto_execute:
+            from app.workers.executor import execute_action_items
+            _emit_event(db, project_id, "AUTO_EXECUTION_TRIGGERED", {
+                "thread_id": thread_id,
+            })
+            execute_action_items.delay(project_id, thread_id)
+
+        return {"status": "completed", "thread_id": thread_id, "auto_execute": auto_execute}
 
     except Exception as exc:
         logger.exception("meeting_pipeline_failed", project_id=project_id)
@@ -414,5 +521,10 @@ def _generate_memo(
         "memo_id": str(memo.id),
         "title": title,
     })
+
+    project = db.get(Project, uuid.UUID(project_id))
+    if project and project.notify_phone:
+        summary = _extract_executive_summary(result.output)
+        _send_imessage(project.notify_phone, f"{title}\n\n{summary}")
 
     return result.output

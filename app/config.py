@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     openclaw_timeout_seconds: int = 120
     openclaw_profile: str = ""
 
+    agent_workspace_dir: str = "."
+
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     log_level: str = "info"

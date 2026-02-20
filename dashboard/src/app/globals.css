@@ -1,0 +1,79 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+:root {
+  --bg-root: #0a0d10;
+  --bg-surface: #111418;
+  --bg-surface-raised: #181c22;
+  --bg-surface-hover: #1e2329;
+  --border: #232830;
+  --border-subtle: #1a1e24;
+  --text-primary: #e8eaed;
+  --text-secondary: #8b929a;
+  --text-muted: #5c636c;
+  --accent: #d4a853;
+  --accent-dim: rgba(212, 168, 83, 0.12);
+  --success: #3ecf8e;
+  --warning: #f5a623;
+  --error: #ef5f5f;
+  --info: #4ea8de;
+  --role-pm: #a78bfa;
+  --role-engineer: #4ea8de;
+  --role-designer: #f472b6;
+  --role-analyst: #34d399;
+  --role-ceo: #d4a853;
+  --role-memo: #8b929a;
+}
+
+@theme inline {
+  --color-background: var(--bg-root);
+  --color-foreground: var(--text-primary);
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+body {
+  background: var(--bg-root);
+  color: var(--text-primary);
+  font-family: 'DM Sans', system-ui, sans-serif;
+}
+
+.markdown-body h1 { font-size: 1.5rem; font-weight: 700; margin: 1.5rem 0 0.75rem; color: var(--text-primary); }
+.markdown-body h2 { font-size: 1.2rem; font-weight: 600; margin: 1.25rem 0 0.5rem; color: var(--text-primary); border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem; }
+.markdown-body h3 { font-size: 1.05rem; font-weight: 600; margin: 1rem 0 0.4rem; color: var(--text-secondary); }
+.markdown-body p { margin: 0.5rem 0; line-height: 1.7; color: var(--text-secondary); }
+.markdown-body ul, .markdown-body ol { padding-left: 1.25rem; margin: 0.5rem 0; }
+.markdown-body li { margin: 0.25rem 0; line-height: 1.65; color: var(--text-secondary); }
+.markdown-body li::marker { color: var(--text-muted); }
+.markdown-body strong { color: var(--text-primary); font-weight: 600; }
+.markdown-body code { font-family: 'JetBrains Mono', monospace; font-size: 0.85em; background: var(--bg-surface-raised); padding: 0.15rem 0.4rem; border-radius: 4px; color: var(--accent); }
+.markdown-body pre { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 0.75rem 0; }
+.markdown-body pre code { background: none; padding: 0; color: var(--text-secondary); }
+.markdown-body table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.875rem; }
+.markdown-body th { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 2px solid var(--border); color: var(--text-primary); font-weight: 600; }
+.markdown-body td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border-subtle); color: var(--text-secondary); }
+.markdown-body hr { border: none; border-top: 1px solid var(--border-subtle); margin: 1.5rem 0; }
+.markdown-body blockquote { border-left: 3px solid var(--accent); padding-left: 1rem; margin: 0.75rem 0; color: var(--text-muted); font-style: italic; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.35s ease-out both;
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}

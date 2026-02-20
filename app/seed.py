@@ -35,6 +35,15 @@ def seed() -> None:
 
         agents_data = [
             {
+                "role": AgentRole.CEO,
+                "name": "Eve (CEO)",
+                "config_json": {
+                    "tool_profile": "full",
+                    "model": "",
+                    "persona": "Startup CEO focused on strategy, prioritization, and shipping fast.",
+                },
+            },
+            {
                 "role": AgentRole.PM,
                 "name": "Alice (PM)",
                 "config_json": {
@@ -99,23 +108,20 @@ def seed() -> None:
         print(f"Seeded project: {project.id}")
         print(f"Thread: {thread.id}")
         print()
-        print("Sample 'start session' request:")
+        print("Sample 'start session' (discuss only):")
         print(f'  POST http://localhost:8000/projects/{project.id}/sessions')
-        print('  Body:')
-        print('  {')
-        print('    "prompt": "We need to build a smart notification system that learns user preferences and reduces notification fatigue. Consider mobile and web.",')
-        print('    "thread_title": "Sprint Planning — Notification System"')
-        print('  }')
+        print('  {"prompt": "Build a notification system", "thread_title": "Sprint Planning"}')
         print()
-        print("Expected memo format:")
-        print("  # Product Team Memo — 2026-02-19")
-        print("  ## Executive Summary")
-        print("  - (5 bullet points)")
-        print("  ## What We Decided")
-        print("  ## What We Considered")
-        print("  ## Risks & Unknowns")
-        print("  ## Next Steps")
-        print("  ## Metrics to Watch")
+        print("Sample 'start session' (discuss + auto-execute):")
+        print(f'  POST http://localhost:8000/projects/{project.id}/sessions')
+        print('  {"prompt": "Build a notification system", "auto_execute": true}')
+        print()
+        print("Sample 'direct task' (skip meeting, just do it):")
+        print(f'  POST http://localhost:8000/projects/{project.id}/tasks')
+        print('  {"agent_role": "engineer", "title": "Add health check endpoint",')
+        print('   "description": "Add GET /healthz returning JSON status", "task_type": "code"}')
+        print()
+        print("Then execute: POST http://localhost:8000/tasks/<TASK_ID>/execute")
 
 
 if __name__ == "__main__":

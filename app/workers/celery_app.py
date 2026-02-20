@@ -21,4 +21,4 @@ celery.conf.update(
     worker_prefetch_multiplier=1,
 )
 
-celery.conf.update(include=["app.workers.meeting"])
+celery.conf.update(include=["app.workers.meeting", "app.workers.executor"])

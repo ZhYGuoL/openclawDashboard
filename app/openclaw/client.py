@@ -59,6 +59,7 @@ class OpenClawClient:
         tool_deny: list[str] | None = None,
         model: str = "",
         timeout_seconds: int | None = None,
+        workspace_dir: str = "",
         extra_config: dict[str, Any] | None = None,
     ) -> AgentResult:
         invocation = AgentInvocation(
@@ -71,6 +72,7 @@ class OpenClawClient:
             tool_deny=tool_deny or [],
             model=model,
             timeout_seconds=timeout_seconds or settings.openclaw_timeout_seconds,
+            workspace_dir=workspace_dir,
             extra_config=extra_config or {},
         )
         logger.info("openclaw_run_agent", role=role, session_id=invocation.session_id)

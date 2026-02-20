@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import agents, events, memos, projects, sessions, threads
+from app.routers import agents, artifacts, events, memos, projects, sessions, tasks, threads
 from app.websocket import router as ws_router
 
 structlog.configure(
@@ -39,6 +39,8 @@ app.include_router(projects.router)
 app.include_router(agents.router)
 app.include_router(threads.router)
 app.include_router(sessions.router)
+app.include_router(tasks.router)
+app.include_router(artifacts.router)
 app.include_router(memos.router)
 app.include_router(events.router)
 app.include_router(ws_router)

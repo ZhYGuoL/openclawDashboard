@@ -45,6 +45,12 @@ class CLIAdapter(OpenClawAdapter):
         """Build the full prompt sent to the agent, combining role instruction and context."""
         parts: list[str] = []
         parts.append(f"[Role: {invocation.role}]")
+        if invocation.tool_allow:
+            parts.append(f"[Allowed Tools: {', '.join(invocation.tool_allow)}]")
+        if invocation.tool_deny:
+            parts.append(f"[Denied Tools: {', '.join(invocation.tool_deny)}]")
+        if invocation.workspace_dir:
+            parts.append(f"[Working Directory: {invocation.workspace_dir}]")
         if invocation.context:
             parts.append(f"[Context]\n{invocation.context}")
         parts.append(f"[Instruction]\n{invocation.instruction}")
@@ -71,13 +77,22 @@ class CLIAdapter(OpenClawAdapter):
             timeout=invocation.timeout_seconds,
         )
 
+        cwd = invocation.workspace_dir or None
+
+        logger.info(
+            "openclaw_cli_cwd",
+            cwd=cwd,
+            tool_allow=invocation.tool_allow,
+            tool_deny=invocation.tool_deny,
+        )
+
         try:
             proc = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
                 timeout=invocation.timeout_seconds + 30,
-                cwd=None,
+                cwd=cwd,
             )
         except subprocess.TimeoutExpired:
             logger.error("openclaw_cli_timeout", session_id=invocation.session_id)

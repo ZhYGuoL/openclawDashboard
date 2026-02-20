@@ -26,6 +26,7 @@ class AgentInvocation:
     tool_deny: list[str] = field(default_factory=list)
     model: str = ""
     timeout_seconds: int = 120
+    workspace_dir: str = ""
     extra_config: dict[str, Any] = field(default_factory=dict)
 
 

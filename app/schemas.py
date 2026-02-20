@@ -10,8 +10,12 @@ from app.models import (
     ActionItemStatus,
     AgentRole,
     AgentStatus,
+    ArtifactType,
     AuthorType,
     DecisionStatus,
+    TaskSource,
+    TaskStatus,
+    TaskType,
 )
 
 
@@ -23,9 +27,15 @@ class ProjectCreate(BaseModel):
     name: str
 
 
+class ProjectUpdate(BaseModel):
+    name: str | None = None
+    notify_phone: str | None = None
+
+
 class ProjectRead(BaseModel):
     id: uuid.UUID
     name: str
+    notify_phone: str | None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -96,6 +106,10 @@ class MessageRead(BaseModel):
 class SessionCreate(BaseModel):
     prompt: str = Field(..., description="User prompt / topic for the work session")
     thread_title: str = Field(default="Work Session", description="Title for the meeting thread")
+    auto_execute: bool = Field(
+        default=False,
+        description="If true, automatically execute action items after the meeting concludes",
+    )
 
 
 class SessionRead(BaseModel):
@@ -162,3 +176,54 @@ class EventRead(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ---------------------------------------------------------------------------
+# Artifact
+# ---------------------------------------------------------------------------
+
+class ArtifactRead(BaseModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    task_id: uuid.UUID
+    artifact_type: ArtifactType
+    path_or_url: str
+    description: str
+    metadata_json: dict[str, Any]
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ---------------------------------------------------------------------------
+# Task
+# ---------------------------------------------------------------------------
+
+class TaskCreate(BaseModel):
+    agent_role: AgentRole
+    title: str
+    description: str
+    task_type: TaskType
+    workspace_dir: str | None = Field(default=None, description="Override workspace directory")
+
+
+class TaskRead(BaseModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    agent_role: AgentRole
+    title: str
+    description: str
+    task_type: TaskType
+    status: TaskStatus
+    source: TaskSource
+    action_item_id: uuid.UUID | None
+    result_summary: str | None
+    workspace_dir: str | None
+    created_at: datetime
+    completed_at: datetime | None
+
+    model_config = {"from_attributes": True}
+
+
+class TaskDetailRead(TaskRead):
+    artifacts: list[ArtifactRead] = []
